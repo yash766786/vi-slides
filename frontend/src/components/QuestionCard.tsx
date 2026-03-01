@@ -343,13 +343,13 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question, isTeacher, isSpot
                                     </span>
                                 )}
 
-                                {question.analysisStatus === 'pending' && !question.isDirectToTeacher && (
+                                {question.analysisStatus === 'pending' && (
                                     <span className="anim-fade-in" style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem', borderRadius: '4px', background: 'rgba(255,255,255,0.05)', color: 'var(--color-text-muted)', border: '1px solid rgba(255,255,255,0.1)' }}>
                                         🤖 AI is thinking...
                                     </span>
                                 )}
 
-                                {question.analysisStatus === 'completed' && question.aiAnalysis && !question.isDirectToTeacher && (
+                                {question.analysisStatus === 'completed' && question.aiAnalysis && (
                                     <>
                                         <span style={{
                                             fontSize: '0.65rem',

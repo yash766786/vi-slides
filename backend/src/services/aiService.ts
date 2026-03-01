@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google/generative-ai'; // Updated logic
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -64,13 +64,10 @@ export const analyzeQuestion = async (questionText: string) => {
     const apiKey = process.env.GEMINI_API_KEY || '';
     console.log(`AI Analysis started for: "${questionText.substring(0, 20)}..." using Key starting with: ${apiKey.substring(0, 4)}`);
 
-    // UPDATED: Prioritize Gemma models as diagnostics confirmed they are WORKING while Gemini is Quota Limited
+    // UPDATED: Use models that are confirmed to be available for this specific project
     const modelNames = [
-        'gemma-3-4b-it',
-        'gemma-3-1b-it',
-        'gemma-2-9b-it',
         'gemini-2.0-flash',
-        'gemini-1.5-flash-8b',
+        'gemini-2.5-flash',
         'gemini-1.5-flash',
         'gemini-pro'
     ];
@@ -114,17 +111,16 @@ export const analyzeQuestion = async (questionText: string) => {
             const model = genAI.getGenerativeModel({ model: name });
             const result = await model.generateContent(prompt);
             const response = await result.response;
-
             let responseText = "";
             try {
                 responseText = response.text().trim();
             } catch (innerError) {
-                console.warn(`Model ${name} returned a safety block or empty response.`);
+                console.error(`⚠️ AI: Model ${name} returned a safety block or empty response.`);
                 continue;
             }
 
             console.log(`--- RAW RESPONSE FROM ${name} ---`);
-            console.log(responseText);
+            console.log(responseText || '[EMPTY RESPONSE]');
             console.log('---------------------------');
 
             try {
@@ -132,15 +128,15 @@ export const analyzeQuestion = async (questionText: string) => {
                 const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
                 const jsonStr = jsonMatch ? jsonMatch[0] : cleanJson;
                 const parsed = JSON.parse(jsonStr);
-                console.log(`Successfully parsed analysis using ${name}`);
+                console.log(`✅ AI: Successfully parsed analysis using ${name}`);
                 return parsed;
             } catch (parseError) {
-                console.error(`JSON Parse Error with ${name}:`, responseText);
+                console.error(`❌ AI: JSON Parse Error with ${name}. Raw response was:`, responseText);
                 continue;
             }
         } catch (error: any) {
-            console.warn(`Analysis with ${name} failed: ${error.message}`);
-            // Retry on 404 (Not Found) OR 429 (Quota Exceeded)
+            console.error(`⚠️ AI: Analysis with ${name} failed. Error: ${error.message}`);
+            // Retry on standard errors
             if (
                 error.message.includes('404') ||
                 error.message.includes('not found') ||
@@ -148,19 +144,22 @@ export const analyzeQuestion = async (questionText: string) => {
                 error.message.includes('quota') ||
                 error.message.includes('Too Many Requests')
             ) {
+                console.log(`🔄 AI: Attempting next model due to retryable error...`);
                 continue;
             }
+            // If it's a critical error (like auth), we still try others just in case
+            console.log(`🔄 AI: Moving to next model after non-standard error...`);
         }
     }
 
     // If we get here, all models failed
-    const finalError = `AI Error: All tried models failed. Common causes: 1) API Key has no 'Generative Language API' enabled (404), or 2) Free tier quota exhausted (429). Please check Google AI Studio.`;
+    console.error('❌ AI: All models failed. This is almost certainy because "Generative Language API" is not enabled in your Google Cloud Project.');
 
     return {
         complexity: 'complex',
-        sentiment: 'Setup Required',
-        cognitiveLevel: 'N/A',
-        aiAnswer: finalError
+        sentiment: 'Setup Hint',
+        cognitiveLevel: 'API Setup',
+        aiAnswer: '⚠️ AI Setup Required: Please ensure the "Generative Language API" is ENABLED at https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com for your new key.'
     };
 };
 
